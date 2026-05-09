@@ -1,0 +1,74 @@
+services:
+  # 1. PHP-FPM (Laravel 12 & Filament 4)
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+      args:
+        - PHP_VERSION=8.4
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    user: "${UID:-1000}:${GID:-1000}" # 호스트 유저 ID와 컨테이너 유저 ID를 동기화
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      - DB_HOST=mariadb
+      - REDIS_HOST=redis
+    depends_on:
+      - mariadb
+      - redis
+    networks:
+      - knw-shop-network
+
+  # 2. MariaDB (DB)
+  mariadb:
+    image: mariadb:11
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: knwshop
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+    networks:
+      - knw-shop-network
+
+  # 3. Redis (Cache & Queue)
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - knw-shop-network
+
+  # 4. Nuxt 3 (Frontend)
+  frontend:
+    image: node:20-alpine
+    container_name: knw-shop-nuxt
+    working_dir: /src
+    volumes:
+      - ./frontend:/src
+    ports:
+      - "3000:3000"
+    environment:
+      - NUXT_PUBLIC_API_BASE=http://localhost:8000/api
+    command: "sh -c 'npm install && npm run dev'"
+    networks:
+      - knw-shop-network
+
+  # 5. Nginx (Web Server)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+    networks:
+      - knw-shop-network
+
+networks:
+  knw-shop-network:
+    driver: bridge

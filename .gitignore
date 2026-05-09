@@ -1,0 +1,4 @@
+# 또는 mysql 폴더 내의 모든 실데이터를 제외하고 싶다면
+/docker/mysql/*
+!/docker/mysql/my.cnf
+!/docker/mysql/init.sql
